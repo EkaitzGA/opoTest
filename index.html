@@ -1398,33 +1398,40 @@ function selectStudyAnswer(key, q) {
   if (studyAnswered) return;
   studyAnswered = true;
 
-  const correct = key === q.correcta;
+  const hasAnswer = q.correcta !== null;
+  const correct   = hasAnswer && key === q.correcta;
   data.answered[q.id] = { selectedKey:key, correct };
 
-  if (correct) {
-    data.streaks[q.id] = (data.streaks[q.id]||0)+1;
-    const di = data.difficult.indexOf(q.id);
-    if (di !== -1) data.difficult.splice(di,1);
-    if (data.streaks[q.id] >= 10 && !data.mastered.includes(q.id)) data.mastered.push(q.id);
-  } else {
-    data.streaks[q.id] = 0;
-    if (!data.difficult.includes(q.id)) data.difficult.push(q.id);
-    // NO quitamos de mastered al fallar — solo se añade al dominar, no se quita al fallar una vez
+  if (hasAnswer) {
+    if (correct) {
+      data.streaks[q.id] = (data.streaks[q.id]||0)+1;
+      const di = data.difficult.indexOf(q.id);
+      if (di !== -1) data.difficult.splice(di,1);
+      if (data.streaks[q.id] >= 10 && !data.mastered.includes(q.id)) data.mastered.push(q.id);
+    } else {
+      data.streaks[q.id] = 0;
+      if (!data.difficult.includes(q.id)) data.difficult.push(q.id);
+    }
   }
   saveData(data);
 
   const keys = ['a','b','c','d'];
   document.querySelectorAll('#study-opts .opt-btn').forEach((btn,i) => {
     btn.disabled = true;
-    if (keys[i] === q.correcta)          btn.classList.add('correct');
-    else if (keys[i] === key && !correct) btn.classList.add('wrong');
+    if (hasAnswer && keys[i] === q.correcta)          btn.classList.add('correct');
+    else if (hasAnswer && keys[i] === key && !correct) btn.classList.add('wrong');
+    else if (!hasAnswer && keys[i] === key)            btn.classList.add('selected-exam');
   });
 
-  const streak    = data.streaks[q.id]||0;
+  const streak     = data.streaks[q.id]||0;
   const isMastered = data.mastered.includes(q.id);
   const fb = document.getElementById('study-feedback');
   fb.style.display = 'block';
-  if (correct) {
+  if (!hasAnswer) {
+    fb.className = 'feedback-box';
+    fb.style.background = 'var(--surface2)';
+    fb.innerHTML = `📝 <strong>Respuesta registrada.</strong> La clave de respuestas no está disponible para esta pregunta.`;
+  } else if (correct) {
     fb.className = 'feedback-box ok';
     fb.innerHTML = isMastered
       ? `🏆 <strong>¡Pregunta dominada!</strong> 10 aciertos consecutivos.`
