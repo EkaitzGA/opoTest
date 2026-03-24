@@ -22,9 +22,9 @@
   /* ── MODO NOCTURNO (defecto) ── */
   :root {
     --bg:       #0f0f14;
-    --surface:  #17171f;
-    --surface2: #1e1e2a;
-    --border:   #2a2a3a;
+    --surface:  #22222e;
+    --surface2: #2a2a3a;
+    --border:   #36364a;
     --accent:   #261768;
     --accent2:  #4a3faa;
     --accent-glow: rgba(38,23,104,0.45);
@@ -40,10 +40,10 @@
 
   /* ── MODO DIURNO ── */
   body.light {
-    --bg:       #f4f6fb;
-    --surface:  #ffffff;
-    --surface2: #e8ecf5;
-    --border:   #d0d7e8;
+    --bg:       #ffffff;
+    --surface:  #f0f0f0;
+    --surface2: #e2e2e2;
+    --border:   #cccccc;
     --accent:   #261768;
     --accent2:  #4a3faa;
     --accent-glow: rgba(38,23,104,0.2);
@@ -284,7 +284,7 @@
   <div id="home" class="screen active">
     <div class="logo-area">
       <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-        <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️ Modo diurno</button>
+        <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️</button>
       </div>
       <div class="logo-icon">📚</div>
       <h1>OpoTest</h1>
@@ -1728,7 +1728,7 @@ function shuffle(arr) {
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light');
   localStorage.setItem('opoTest_theme', isLight ? 'light' : 'dark');
-  document.getElementById('theme-btn').textContent = isLight ? '🌙 Modo nocturno' : '☀️ Modo diurno';
+  document.getElementById('theme-btn').textContent = isLight ? '🌙' : '☀️';
 }
 
 // ══════════════════════════════════════════
@@ -1741,7 +1741,7 @@ if (localStorage.getItem('opoTest_theme') === 'light') {
 renderHome();
 // Actualizar texto del botón si arrancamos en modo diurno
 if (document.body.classList.contains('light')) {
-  document.getElementById('theme-btn').textContent = '🌙 Modo nocturno';
+  document.getElementById('theme-btn').textContent = '🌙';
 }
 
 if ('serviceWorker' in navigator) {
