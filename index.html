@@ -151,7 +151,8 @@
     cursor: pointer; color: var(--muted); display: flex; align-items: center; gap: 5px;
     transition: all 0.15s; font-family: var(--sans);
   }
-  .tag-btn.active-fav  { background: rgba(245,158,11,0.15); border-color: var(--yellow); color: var(--yellow); }
+  .tag-btn.active-hard { background: rgba(239,68,68,0.15);  border-color: var(--red);    color: var(--red); }
+  .tag-btn-repaso { background: rgba(108,99,255,0.12); border-color: rgba(108,99,255,0.4); color: var(--accent2); font-size: 0.78rem; }
   .tag-btn.active-hard { background: rgba(239,68,68,0.12);  border-color: var(--red);    color: var(--red); }
 
   .options-list { padding: 12px 20px 0; display: grid; gap: 10px; }
@@ -277,9 +278,9 @@
         <div class="info"><strong>Estadísticas</strong><span>Progreso y rendimiento por bloque</span></div>
         <div class="arrow">›</div>
       </button>
-      <button class="menu-btn" onclick="showScreen('favorites')">
-        <div class="icon">📋</div>
-        <div class="info"><strong>Difíciles · Dominadas · Favoritas</strong><span>Seguimiento automático</span></div>
+      <button class="menu-btn" onclick="showScreen('difficult')">
+        <div class="icon">🔴</div>
+        <div class="info"><strong>Difíciles · Dominadas</strong><span>Seguimiento automático</span></div>
         <div class="arrow">›</div>
       </button>
     </div>
@@ -322,8 +323,8 @@
       <div class="q-text" id="study-pregunta"></div>
     </div>
     <div class="q-actions">
-      <button class="tag-btn" id="study-fav-btn"  onclick="toggleTag('fav')">⭐ Favorita</button>
       <button class="tag-btn" id="study-hard-btn" onclick="toggleTag('hard')">🔴 Difícil</button>
+      <button class="tag-btn tag-btn-repaso" onclick="launchDifficult()" id="study-repaso-btn">📋 Repasar difíciles</button>
     </div>
     <div class="options-list" id="study-opts"></div>
     <div id="study-feedback" style="display:none"></div>
@@ -357,6 +358,9 @@
       <button class="btn-primary"   id="exam-next-btn"   onclick="examNav(1)">Siguiente →</button>
       <button class="btn-secondary" id="exam-finish-btn" onclick="finishExam()" style="display:none">Entregar</button>
     </div>
+    <div style="padding:12px 20px 0">
+      <button class="tag-btn tag-btn-repaso" style="width:100%" onclick="launchDifficult()">📋 Repasar difíciles</button>
+    </div>
   </div>
 
   <!-- RESULTS -->
@@ -388,13 +392,18 @@
     <div class="stats-body" id="stats-body"></div>
   </div>
 
-  <!-- FAVORITES -->
-  <div id="favorites" class="screen">
+  <!-- DIFFICULT -->
+  <div id="difficult" class="screen">
     <div class="header">
       <button class="btn-back" onclick="goHome()">←</button>
-      <h2>Difíciles · Dominadas · Favoritas</h2>
+      <h2>Difíciles · Dominadas</h2>
     </div>
-    <div class="favs-body" id="favs-body"></div>
+    <div class="favs-body" id="favs-body">
+      <div style="padding:16px 20px">
+        <button class="btn-primary" onclick="launchDifficult()" id="difficult-launch-btn">📋 Repasar difíciles</button>
+      </div>
+      <div id="difficult-content"></div>
+    </div>
   </div>
 
 </div>
@@ -1148,6 +1157,13 @@ function getBlocks() {
   const general = PREGUNTAS.filter(q => q.categoria === 'general');
   const blocks  = [];
 
+  // Bloque especial: todas las de fisio
+  blocks.push({
+    key: 'fisio_all', label: 'Fisio · Todas',
+    range: `${fisio.length} preguntas`, categoria: 'fisio',
+    questions: fisio,
+  });
+
   // Bloques fisio (100 c/u)
   for (let i = 0; i < Math.ceil(fisio.length / FISIO_BLOCK_SIZE); i++) {
     const start = i * FISIO_BLOCK_SIZE;
@@ -1194,7 +1210,7 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if (id === 'stats')     renderStats();
-  if (id === 'favorites') renderFavorites();
+  if (id === 'difficult') renderDifficult();
   if (id === 'home')      renderHome();
 }
 function goHome() { showScreen('home'); }
@@ -1249,7 +1265,6 @@ function renderBlocksList() {
   let html = '';
 
   if (isExam) {
-    // Examen: un solo botón con proporción calculada
     const fisio   = PREGUNTAS.filter(q => q.categoria === 'fisio').length;
     const general = PREGUNTAS.filter(q => q.categoria === 'general').length;
     const total   = PREGUNTAS.length;
@@ -1265,18 +1280,41 @@ function renderBlocksList() {
         <div><div class="b-title">🎲 Generar examen</div><div class="b-sub">Mezcla proporcional automática</div></div>
         <div class="b-pct" style="color:var(--accent2)">→</div>
       </button>`;
+    const hardQs = PREGUNTAS.filter(q=>data.difficult.includes(q.id));
+    if (hardQs.length) {
+      html += `<button class="block-btn" style="border-color:rgba(239,68,68,0.3);margin-top:6px" onclick="launchDifficult()">
+        <div><div class="b-title">📋 Repasar difíciles</div><div class="b-sub">${hardQs.length} preguntas marcadas</div></div>
+        <div class="b-pct" style="color:var(--red)">→</div>
+      </button>`;
+    }
   } else {
-    // Estudio: Todas + bloques por sección
+    // Estudio: Todas + repasar difíciles + bloques
     const allPct = blockPct(PREGUNTAS);
     html += `
       <button class="block-btn all-btn" onclick="launchStudy(null)">
         <div><div class="b-title">📚 Todas las preguntas</div><div class="b-sub">${PREGUNTAS.length} preguntas</div></div>
         <div class="b-pct" style="color:${pctColor(allPct)}">${allPct !== null ? allPct+'%' : '—'}</div>
       </button>`;
+    const hardQs = PREGUNTAS.filter(q=>data.difficult.includes(q.id));
+    if (hardQs.length) {
+      html += `<button class="block-btn" style="border-color:rgba(239,68,68,0.3)" onclick="launchDifficult()">
+        <div><div class="b-title">📋 Repasar difíciles</div><div class="b-sub">${hardQs.length} preguntas marcadas</div></div>
+        <div class="b-pct" style="color:var(--red)">→</div>
+      </button>`;
+    }
 
-    // Separador Fisio
+    // Sección Fisio
     html += `<div class="section-title" style="margin-top:14px">🩺 Fisioterapia</div>`;
-    blocks.filter(b => b.categoria === 'fisio').forEach(b => {
+    // Primero el bloque "Todas Fisio"
+    const fisioAll = blocks.find(b => b.key === 'fisio_all');
+    const pAll = blockPct(fisioAll.questions);
+    html += `
+      <button class="block-btn all-btn" onclick="launchStudy('fisio_all')">
+        <div><div class="b-title">🩺 Fisio · Todas</div><div class="b-sub">${fisioAll.questions.length} preguntas</div></div>
+        <div class="b-pct" style="color:${pctColor(pAll)}">${pAll !== null ? pAll+'%' : '—'}</div>
+      </button>`;
+    // Luego los 5 bloques de 100
+    blocks.filter(b => b.categoria === 'fisio' && b.key !== 'fisio_all').forEach(b => {
       const p = blockPct(b.questions);
       html += `
         <button class="block-btn" onclick="launchStudy('${b.key}')">
@@ -1285,7 +1323,7 @@ function renderBlocksList() {
         </button>`;
     });
 
-    // Separador General
+    // Sección General
     html += `<div class="section-title" style="margin-top:14px">📋 Temario General</div>`;
     blocks.filter(b => b.categoria === 'general').forEach(b => {
       const p = blockPct(b.questions);
@@ -1337,7 +1375,6 @@ function renderStudyQ() {
   document.getElementById('study-num').textContent     = `Pregunta #${q.id}`;
   document.getElementById('study-pregunta').textContent = q.pregunta;
 
-  document.getElementById('study-fav-btn').className  = 'tag-btn'+(data.favorites.includes(q.id)?' active-fav':'');
   document.getElementById('study-hard-btn').className = 'tag-btn'+(data.difficult.includes(q.id)?' active-hard':'');
 
   const optsEl = document.getElementById('study-opts');
@@ -1372,8 +1409,7 @@ function selectStudyAnswer(key, q) {
   } else {
     data.streaks[q.id] = 0;
     if (!data.difficult.includes(q.id)) data.difficult.push(q.id);
-    const mi = data.mastered.indexOf(q.id);
-    if (mi !== -1) data.mastered.splice(mi,1);
+    // NO quitamos de mastered al fallar — solo se añade al dominar, no se quita al fallar una vez
   }
   saveData(data);
 
@@ -1400,7 +1436,6 @@ function selectStudyAnswer(key, q) {
 
   document.getElementById('study-next-btn').disabled = false;
   document.getElementById('study-score').textContent = `✓ ${Object.values(data.answered).filter(a=>a.correct).length} · ✗ ${Object.values(data.answered).filter(a=>!a.correct).length}`;
-  document.getElementById('study-fav-btn').className  = 'tag-btn'+(data.favorites.includes(q.id)?' active-fav':'');
   document.getElementById('study-hard-btn').className = 'tag-btn'+(data.difficult.includes(q.id)?' active-hard':'');
 }
 
@@ -1409,11 +1444,9 @@ function studyPrev() { if (studyIndex > 0) { studyIndex--; renderStudyQ(); } }
 
 function toggleTag(type) {
   const q = studyList[studyIndex];
-  const arr = type === 'fav' ? data.favorites : data.difficult;
-  const i = arr.indexOf(q.id);
-  if (i === -1) arr.push(q.id); else arr.splice(i,1);
+  const i = data.difficult.indexOf(q.id);
+  if (i === -1) data.difficult.push(q.id); else data.difficult.splice(i,1);
   saveData(data);
-  document.getElementById('study-fav-btn').className  = 'tag-btn'+(data.favorites.includes(q.id)?' active-fav':'');
   document.getElementById('study-hard-btn').className = 'tag-btn'+(data.difficult.includes(q.id)?' active-hard':'');
 }
 
@@ -1539,14 +1572,10 @@ function renderStats() {
   else masteredQs.forEach(q => { html += `<div class="q-list-item"><span class="badge" style="background:rgba(167,139,250,0.15);color:#a78bfa">🏆</span><span>#${q.id} · ${q.pregunta}</span></div>`; });
   html += `</div></div>`;
 
-  const favQs = PREGUNTAS.filter(q=>data.favorites.includes(q.id));
-  html += `<div><div class="section-title">⭐ Favoritas (${favQs.length})</div><div style="display:flex;flex-direction:column;gap:8px">`;
-  if (!favQs.length) html += `<div class="empty-state">Marca preguntas con ⭐ durante el estudio.</div>`;
-  else favQs.forEach(q => { html += `<div class="q-list-item"><span class="badge fav">⭐</span><span>#${q.id} · ${q.pregunta}</span></div>`; });
-  html += `</div></div>`;
-
   const hardQs = PREGUNTAS.filter(q=>data.difficult.includes(q.id));
-  html += `<div><div class="section-title">🔴 Difíciles (${hardQs.length})</div><div style="display:flex;flex-direction:column;gap:8px">`;
+  html += `<div><div class="section-title">🔴 Difíciles (${hardQs.length})</div>`;
+  if (hardQs.length) html += `<div style="margin-bottom:8px"><button class="btn-primary" style="font-size:0.85rem;padding:10px 16px" onclick="launchDifficult()">📋 Repasar difíciles</button></div>`;
+  html += `<div style="display:flex;flex-direction:column;gap:8px">`;
   if (!hardQs.length) html += `<div class="empty-state">¡Sin preguntas difíciles de momento!</div>`;
   else hardQs.forEach(q => { html += `<div class="q-list-item"><span class="badge hard">🔴</span><span>#${q.id} · ${q.pregunta}</span></div>`; });
   html += `</div></div>`;
@@ -1569,57 +1598,62 @@ function renderStats() {
 }
 
 // ══════════════════════════════════════════
-//  FAVORITES SCREEN
+//  DIFFICULT SCREEN
 // ══════════════════════════════════════════
-function renderFavorites() {
-  const hardQs     = PREGUNTAS.filter(q=>data.difficult.includes(q.id));
-  const masteredQs = PREGUNTAS.filter(q=>data.mastered.includes(q.id));
-  const favQs      = PREGUNTAS.filter(q=>data.favorites.includes(q.id));
+function launchDifficult() {
+  const hardQs = PREGUNTAS.filter(q => data.difficult.includes(q.id));
+  if (!hardQs.length) { alert('No tienes preguntas marcadas como difíciles todavía.'); return; }
+  studyList  = shuffle(hardQs.slice());
+  studyIndex = 0;
+  document.getElementById('study-title').textContent = `Repaso Difíciles · 🔀 (${studyList.length})`;
+  showScreen('study');
+  renderStudyQ();
+}
+
+function renderDifficult() {
+  const hardQs     = PREGUNTAS.filter(q => data.difficult.includes(q.id));
+  const masteredQs = PREGUNTAS.filter(q => data.mastered.includes(q.id));
   let html = '';
 
+  // Botón repasar
+  const btnStyle = hardQs.length ? '' : 'opacity:0.4;pointer-events:none';
+  html += `<div style="padding:0 0 12px">
+    <button class="btn-primary" style="${btnStyle}" onclick="launchDifficult()">
+      📋 Repasar difíciles (${hardQs.length})
+    </button>
+  </div>`;
+
+  // Lista difíciles
   html += `<div class="section-title">🔴 Difíciles — ${hardQs.length} preguntas</div>`;
-  if (!hardQs.length) html += `<div class="empty-state">¡Ninguna difícil! Aquí aparecen las que falles.</div>`;
+  if (!hardQs.length) html += `<div class="empty-state">¡Sin difíciles de momento! Aparecen aquí las que falles.</div>`;
   else hardQs.forEach(q => {
-    const s = data.streaks[q.id]||0;
-    html += `<div class="q-list-item" style="flex-direction:column;gap:8px">
+    const s = data.streaks[q.id] || 0;
+    html += `<div class="q-list-item" style="flex-direction:column;gap:6px">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span class="badge hard">🔴 Difícil</span>
+        <span class="badge hard">🔴</span>
         <span style="font-size:0.72rem;color:var(--muted)">#${q.id}</span>
-        ${s>0?`<span style="font-size:0.72rem;color:var(--yellow)">racha: ${s}/10</span>`:''}
+        ${s > 0 ? `<span style="font-size:0.72rem;color:var(--yellow)">racha ${s}/10</span>` : ''}
       </div>
       <span>${q.pregunta}</span>
     </div>`;
   });
 
-  html += `<div class="divider"></div>`;
+  html += `<div class="divider" style="margin:16px 0"></div>`;
 
-  html += `<div class="section-title" style="margin-top:6px">🏆 Dominadas — ${masteredQs.length} preguntas</div>`;
+  // Lista dominadas
+  html += `<div class="section-title">🏆 Dominadas — ${masteredQs.length} preguntas</div>`;
   if (!masteredQs.length) html += `<div class="empty-state">Acierta la misma pregunta 10 veces consecutivas para dominarla.</div>`;
   else masteredQs.forEach(q => {
-    html += `<div class="q-list-item" style="flex-direction:column;gap:8px">
+    html += `<div class="q-list-item" style="flex-direction:column;gap:6px">
       <div style="display:flex;gap:8px;align-items:center">
-        <span class="badge" style="background:rgba(167,139,250,0.15);color:#a78bfa">🏆 Dominada</span>
+        <span class="badge" style="background:rgba(167,139,250,0.15);color:#a78bfa">🏆</span>
         <span style="font-size:0.72rem;color:var(--muted)">#${q.id}</span>
       </div>
       <span>${q.pregunta}</span>
     </div>`;
   });
 
-  html += `<div class="divider"></div>`;
-
-  html += `<div class="section-title" style="margin-top:6px">⭐ Favoritas — ${favQs.length} preguntas</div>`;
-  if (!favQs.length) html += `<div class="empty-state">Marca preguntas con ⭐ durante el estudio.</div>`;
-  else favQs.forEach(q => {
-    html += `<div class="q-list-item" style="flex-direction:column;gap:8px">
-      <div style="display:flex;gap:8px;align-items:center">
-        <span class="badge fav">⭐ Favorita</span>
-        <span style="font-size:0.72rem;color:var(--muted)">#${q.id}</span>
-      </div>
-      <span>${q.pregunta}</span>
-    </div>`;
-  });
-
-  document.getElementById('favs-body').innerHTML = html;
+  document.getElementById('difficult-content').innerHTML = html;
 }
 
 // ══════════════════════════════════════════
