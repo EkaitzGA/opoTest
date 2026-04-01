@@ -338,6 +338,18 @@
     <div class="header">
       <button class="btn-back" onclick="goHome()">←</button>
       <h2 id="study-title">Modo Estudio</h2>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input id="goto-input" type="number" min="1" placeholder="#"
+          style="width:58px;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+                 border-radius:8px;padding:6px 8px;font-size:0.82rem;font-family:var(--mono);text-align:center"
+          onkeydown="if(event.key==='Enter') goToQuestion()"
+        >
+        <button onclick="goToQuestion()"
+          style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+                 border-radius:8px;padding:6px 10px;font-size:0.8rem;cursor:pointer;white-space:nowrap">
+          Ir
+        </button>
+      </div>
     </div>
     <div class="progress-bar-wrap">
       <div class="progress-info">
@@ -416,6 +428,11 @@
     <div class="header">
       <button class="btn-back" onclick="goHome()">←</button>
       <h2>Estadísticas</h2>
+      <button onclick="resetStats()"
+        style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);
+               border-radius:8px;padding:6px 12px;font-size:0.78rem;cursor:pointer;white-space:nowrap">
+        🗑 Borrar
+      </button>
     </div>
     <div class="stats-body" id="stats-body"></div>
   </div>
@@ -1243,6 +1260,13 @@ function showScreen(id) {
 }
 function goHome() { showScreen('home'); }
 
+function resetStats() {
+  if (!confirm('¿Borrar todas las estadísticas y empezar de cero? Esta acción no se puede deshacer.')) return;
+  data = defaultData();
+  saveData(data);
+  renderStats();
+}
+
 // ══════════════════════════════════════════
 //  HOME
 // ══════════════════════════════════════════
@@ -1365,11 +1389,20 @@ function launchStudy(blockKey) {
   const pool = blockKey === null
     ? [...PREGUNTAS]
     : getBlocks().find(b => b.key === blockKey).questions.slice();
-  const label   = blockKey === null ? 'Todas' : getBlocks().find(b => b.key === blockKey).label;
-  const ordered = selectedOrder === 'sequential' ? pool : shuffle(pool);
+  const label     = blockKey === null ? 'Todas' : getBlocks().find(b => b.key === blockKey).label;
+  const ordered   = selectedOrder === 'sequential' ? pool : shuffle(pool);
   const orderIcon = selectedOrder === 'random' ? ' · 🔀' : ' · 🔢';
 
-  studyList = ordered; studyIndex = 0;
+  studyList = ordered;
+
+  // En modo secuencial, arrancar desde la primera no contestada
+  if (selectedOrder === 'sequential') {
+    const firstUnanswered = ordered.findIndex(q => !data.answered[q.id]);
+    studyIndex = firstUnanswered !== -1 ? firstUnanswered : 0;
+  } else {
+    studyIndex = 0;
+  }
+
   document.getElementById('study-title').textContent = `Estudio · ${label}${orderIcon}`;
   showScreen('study');
   renderStudyQ();
@@ -1471,6 +1504,21 @@ function selectStudyAnswer(key, q) {
 
 function studyNext() { studyIndex < studyList.length-1 ? (studyIndex++, renderStudyQ()) : goHome(); }
 function studyPrev() { if (studyIndex > 0) { studyIndex--; renderStudyQ(); } }
+
+function goToQuestion() {
+  const input = document.getElementById('goto-input');
+  const qId   = parseInt(input.value);
+  if (isNaN(qId)) return;
+  const idx = studyList.findIndex(q => q.id === qId);
+  if (idx !== -1) {
+    studyIndex = idx;
+    renderStudyQ();
+    input.value = '';
+  } else {
+    input.style.borderColor = 'var(--red)';
+    setTimeout(() => input.style.borderColor = 'var(--border)', 1200);
+  }
+}
 
 function toggleTag(type) {
   const q = studyList[studyIndex];
